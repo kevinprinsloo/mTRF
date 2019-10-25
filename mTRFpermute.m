@@ -72,12 +72,13 @@ if tmin > tmax
     error('Value of TMIN must be < TMAX')
 end
 if ~exist('iter','var')
-    iter = 1;
+    iter = 100;
 end
 nlambda = length(lambda);
 ntrials = length(stim);
 
 %% Train all possible combinations
+disp('Beginning model training')
 MODEL = cell(nlambda,ntrials,ntrials);
 C = cell(nlambda,ntrials,ntrials);
 for ii = 1:nlambda
@@ -89,6 +90,7 @@ for ii = 1:nlambda
 end
 
 %% Test matched combinations
+disp('Beginning matched predictions')
 for ii = 1:nlambda
     real_model=[];
     real_c=[];
@@ -102,21 +104,26 @@ for ii = 1:nlambda
         trials(jj) = [];
         current_model = shiftdim(mean(real_model(trials,ii,:,:,:),1),2);
         current_c = shiftdim(mean(real_c(trials,:,:),1),1);
-        [pred(jj,ii,:,:),r(jj,ii,:),p(jj,ii,:),mse(jj,ii,:)] = mTRFpredict(stim{jj},resp{jj},current_model,fs,map,tmin,tmax,current_c);
+        [pred(jj,ii,:,:),r(jj,ii,:,:),p(jj,ii,:,:),mse(jj,ii,:,:)] = mTRFpredict(stim{jj},resp{jj},current_model,fs,map,tmin,tmax,current_c);
     end
 end
 
-r_m = mean(r,2);
+r_m = mean(r);
 
 %% Iteratively test ntrial randomly shuffled combinations
 if iter>1
+    disp('Beginning shuffled predictions')
+    tic
     for pp = 1:iter
+        
+        if mod(pp,20)==0
+            t = toc;
+            disp(['Perm # ',num2str(pp),' of ',num2str(iter)])
+            disp(['Est. time remaining: ',num2str(t.*(iter./pp)-t),' seconds'])
+        end
+        
         for ii = 1:nlambda
-            
             tr_shuf = randperm(ntrials);
-            while any(tr_shuf==1:ntrials)
-                tr_shuf = randperm(ntrials);
-            end
             
             shuf_model=[];
             shuf_c=[];
@@ -124,20 +131,21 @@ if iter>1
                 shuf_model(jj,:,:,:) = MODEL{ii,jj,tr_shuf(jj)};
                 shuf_c(jj,:,:) = C{ii,jj,tr_shuf(jj)};
             end
-            model_perm(pp,ii,:,:,:) = mean(shuf_model,1);
+            model_perm(pp,ii,:,:,:) = shiftdim(mean(shuf_model),1); %Added shiftdim for backward model
             
             for jj = 1:ntrials
                 trials = 1:ntrials;
                 trials(jj) = [];
                 current_model = shiftdim(mean(shuf_model(trials,:,:,:),1),1);
                 current_c = shiftdim(mean(shuf_c(trials,:,:),1),1);
-                [pred_temp(ii,jj,:,:),r_temp(ii,jj,:,:),~,~] = mTRFpredict(stim{jj},resp{jj},current_model,fs,map,tmin,tmax,current_c);
+                [pred_temp(jj,:,:),r_temp(jj,:,:),~,~] = mTRFpredict(stim{jj},resp{jj},current_model,fs,map,tmin,tmax,current_c);
             end
-            pred_perm(ii,pp,:,:) = mean(pred_temp,2);
-            r_perm(ii,pp,:,:) = squeeze(mean(r_temp,2));
+            
+            pred_perm(pp,ii,:,:) = shiftdim(mean(pred_temp),1);
+            r_perm(pp,ii,:,:) = shiftdim(mean(r_temp),1);
         end
     end
-    p_perm = squeeze(1-mean(repmat(r_m,1,size(r_perm,2),1)>r_perm,2));
+    p_perm = squeeze(1-mean(repmat(r_m,size(r_perm,1),1)>r_perm,1));
 else
     r_perm = [];
     p_perm = [];

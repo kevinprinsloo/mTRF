@@ -78,14 +78,8 @@ nlambda = length(lambda);
 ntrials = length(stim);
 
 % Convert time lags to samples
-if map==-1
-    [tmin_s,tmax_s] = deal(tmax,tmin);
-else
-    tmin_s = tmin;
-    tmax_s = tmax;
-end
-tmin_s = floor(tmin_s/1e3*fs*map);
-tmax_s = ceil(tmax_s/1e3*fs*map);
+tmin_s = floor(tmin/1e3*fs*map);
+tmax_s = ceil(tmax/1e3*fs*map);
 t = (tmin_s:tmax_s)/fs*1e3;
 
 %% Train all possible combinations
@@ -102,6 +96,7 @@ for jj = 1:ntrials
         elseif map == -1
             x = resp{kk};
             y = stim{jj};
+            [tmin,tmax] = deal(tmax,tmin);
         else
             error('Value of MAP must be 1 (forward) or -1 (backward)')
         end
@@ -150,7 +145,7 @@ for ii = 1:nlambda
         current_c = current_model(1:size(x,2),:);
         current_model = reshape(current_model(size(x,2)+1:end,:),size(x,2),length(tmin_s:tmax_s),size(y,2));
         
-        [pred(jj,ii,:,:),r(jj,ii,:),p(jj,ii,:),mse(jj,ii,:)] = mTRFpredict(stim{jj},resp{jj},current_model,fs,map,tmin,tmax,current_c);
+        [pred(ii,jj,:,:),r(ii,jj,:),p(ii,jj,:),mse(ii,jj,:)] = mTRFpredict(stim{jj},resp{jj},current_model,fs,map,tmin,tmax,current_c);
     end
 end
 
